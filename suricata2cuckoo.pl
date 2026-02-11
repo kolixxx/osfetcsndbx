@@ -17,6 +17,7 @@ use strict;
 use warnings;
 use Cwd qw(abs_path);
 use File::Basename qw(dirname);
+use File::Temp;
 use Sys::Syslog;
 use LWP::UserAgent;
 use HTTP::Request::Common qw(POST);
@@ -156,25 +157,33 @@ sub submit_file {
 
     logmsg("Submitting $file as $submit_name (package=$package) to Cuckoo API");
 
-    # Read file content for upload
-    my $file_content;
+    # Create temporary file with proper extension for Cuckoo API
+    # HTTP::Request::Common uses filename from path, so we need a temp file with correct extension
+    my ($tmp_fh, $tmp_file) = tempfile(
+        SUFFIX => '.' . ($submit_name =~ /\.([^.]+)$/ ? $1 : 'exe'),
+        UNLINK => 1
+    );
+    
+    # Copy original file to temp file
     {
-        local $/;
-        open my $fh, '<', $file or do {
-            logmsg("Cannot open file $file: $!");
+        open my $src_fh, '<', $file or do {
+            logmsg("Cannot open source file $file: $!");
             return;
         };
-        binmode($fh);
-        $file_content = <$fh>;
-        close($fh);
+        binmode($src_fh);
+        binmode($tmp_fh);
+        while (my $line = <$src_fh>) {
+            print $tmp_fh $line;
+        }
+        close($src_fh);
+        close($tmp_fh);
     }
 
-    # Send file with a proper filename (with extension) so Cuckoo/guest VM know how to run it
-    # Format: [ undef, filename, Content => file_content ]
+    # Use same format as cuckoomx.pl - HTTP::Request::Common will use filename from path
     my $req = POST "$url",
         Content_Type => 'form-data',
         Content => [
-            file    => [ undef, $submit_name, Content => $file_content ],
+            file    => [ $tmp_file ],
             package => $package,
             machine => $CuckooVM,
         ];
