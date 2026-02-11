@@ -18,7 +18,6 @@ use warnings;
 use Cwd qw(abs_path);
 use File::Basename qw(dirname);
 use File::Temp qw(tempfile);
-use File::Copy;
 use Sys::Syslog;
 use LWP::UserAgent;
 use HTTP::Request::Common qw(POST);
@@ -160,22 +159,30 @@ sub submit_file {
 
     # Create temporary file with proper extension for Cuckoo API
     # HTTP::Request::Common uses filename from path, so we need a temp file with correct extension
-    # Use tempfile to get a temp directory, then copy file with proper name
-    my ($tmp_fh, $tmp_base) = tempfile(
-        SUFFIX => '.tmp',
-        UNLINK => 1
-    );
-    close($tmp_fh);
-    unlink($tmp_base);  # Remove the temp file, we just needed the directory
-    
-    my $tmp_dir = dirname($tmp_base);
+    # Get temp directory and create file with proper name
+    my $tmp_dir = $ENV{TMPDIR} || $ENV{TMP} || '/tmp';
     my $tmp_file_path = "$tmp_dir/$submit_name";
     
-    # Copy original file to temp location with proper name
-    copy($file, $tmp_file_path) or do {
-        logmsg("Cannot copy file $file to $tmp_file_path: $!");
-        return;
-    };
+    # Copy original file content to temp file with proper name
+    {
+        open my $src_fh, '<', $file or do {
+            logmsg("Cannot open source file $file: $!");
+            return;
+        };
+        open my $dst_fh, '>', $tmp_file_path or do {
+            logmsg("Cannot create temp file $tmp_file_path: $!");
+            close($src_fh);
+            return;
+        };
+        binmode($src_fh);
+        binmode($dst_fh);
+        my $buffer;
+        while (read($src_fh, $buffer, 8192)) {
+            print $dst_fh $buffer;
+        }
+        close($src_fh);
+        close($dst_fh);
+    }
 
     # Ensure file exists and is readable
     unless (-f $tmp_file_path && -r $tmp_file_path) {
@@ -184,19 +191,14 @@ sub submit_file {
         return;
     }
     
-    # Ensure all variables are strings (not references) - exactly as in cuckoomx.pl
-    my $file_path_str = "$tmp_file_path";
-    my $package_str = "$package";
-    my $machine_str = "$CuckooVM";
-    
     # Use EXACTLY the same format as cuckoomx.pl - HTTP::Request::Common will use filename from path
     # Format: file => [ $file_path_string ]
     my $req = POST $url,
         Content_Type => 'form-data',
         Content => [
-            file    => [ $file_path_str ],
-            package => $package_str,
-            machine => $machine_str,
+            file    => [ $tmp_file_path ],
+            package => $package,
+            machine => $CuckooVM,
         ];
     $req->header('Authorization' => "Bearer $CuckooApiToken") if $CuckooApiToken ne "";
 
