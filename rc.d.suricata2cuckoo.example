@@ -1,0 +1,39 @@
+#!/bin/sh
+#
+# FreeBSD/OPNsense rc.d script for suricata2cuckoo daemon.
+# Copy to /usr/local/etc/rc.d/suricata2cuckoo and chmod +x.
+# Enable: add to rc.conf: suricata2cuckoo_enable="YES"
+#         suricata2cuckoo_config="/path/to/suricata2cuckoo.conf"
+#
+
+# PROVIDE: suricata2cuckoo
+# REQUIRE: LOGIN
+# KEYWORD: nojail
+
+. /etc/rc.subr
+
+name="suricata2cuckoo"
+rcvar="${name}_enable"
+command="/usr/local/bin/suricata2cuckoo.pl"
+command_args="-c ${suricata2cuckoo_config:-/usr/local/etc/suricata2cuckoo.conf}"
+pidfile="/var/run/${name}.pid"
+start_cmd="${name}_start"
+stop_cmd="${name}_stop"
+
+suricata2cuckoo_start() {
+    if [ -z "$suricata2cuckoo_config" ]; then
+        echo "Set suricata2cuckoo_config in rc.conf"
+        return 1
+    fi
+    /usr/sbin/daemon -p $pidfile -f $command $command_args
+}
+
+suricata2cuckoo_stop() {
+    if [ -f $pidfile ]; then
+        kill $(cat $pidfile) 2>/dev/null
+        rm -f $pidfile
+    fi
+}
+
+load_rc_config $name
+run_rc_command "$1"
