@@ -23,7 +23,7 @@ pkg install p5-libwww p5-HTTP-Message p5-XML-XPath
 
 # Установка опциональных модулей
 # p5-File-LibMagic - для определения типа файла по содержимому (рекомендуется)
-pkg install p5-File-LibMagic 2>/dev/null || echo "p5-File-LibMagic не найден, будет использоваться пакет 'exe' по умолчанию"
+pkg install p5-File-LibMagic || echo "p5-File-LibMagic не найден, будет использоваться пакет 'exe' по умолчанию"
 ```
 
 **Важно о p5-IO-KQueue:**
@@ -99,8 +99,11 @@ pw groupmod suricata -m root
 **Важно:** Убедитесь, что скрипт может читать файлы из `/var/log/suricata/filestore/00` … `ff`. Проверьте:
 
 ```bash
-# Тест доступа
-ls -la /var/log/suricata/filestore/00/ 2>&1 | head -5
+# Тест доступа (OPNsense использует sh, поэтому используем простой синтаксис)
+ls -la /var/log/suricata/filestore/00/ | head -5
+
+# Или просто проверьте, что директория существует и доступна
+ls /var/log/suricata/filestore/00/
 ```
 
 ### Шаг 5: Настройка конфигурации
