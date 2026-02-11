@@ -17,7 +17,7 @@ use strict;
 use warnings;
 use Cwd qw(abs_path);
 use File::Basename qw(dirname);
-use File::Temp;
+use File::Temp qw(tempfile);
 use Sys::Syslog;
 use LWP::UserAgent;
 use HTTP::Request::Common qw(POST);
