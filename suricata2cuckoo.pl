@@ -18,6 +18,7 @@ use warnings;
 use Cwd qw(abs_path);
 use File::Basename qw(dirname);
 use File::Temp qw(tempfile);
+use File::Copy;
 use Sys::Syslog;
 use LWP::UserAgent;
 use HTTP::Request::Common qw(POST);
@@ -159,30 +160,24 @@ sub submit_file {
 
     # Create temporary file with proper extension for Cuckoo API
     # HTTP::Request::Common uses filename from path, so we need a temp file with correct extension
-    # Don't use UNLINK => 1, we'll delete it manually after the request
-    my ($tmp_fh, $tmp_file) = tempfile(
-        SUFFIX => '.' . ($submit_name =~ /\.([^.]+)$/ ? $1 : 'exe'),
-        UNLINK => 0
+    # Use tempfile to get a temp directory, then copy file with proper name
+    my ($tmp_fh, $tmp_base) = tempfile(
+        SUFFIX => '.tmp',
+        UNLINK => 1
     );
+    close($tmp_fh);
+    unlink($tmp_base);  # Remove the temp file, we just needed the directory
     
-    # Copy original file to temp file
-    {
-        open my $src_fh, '<', $file or do {
-            logmsg("Cannot open source file $file: $!");
-            return;
-        };
-        binmode($src_fh);
-        binmode($tmp_fh);
-        while (my $line = <$src_fh>) {
-            print $tmp_fh $line;
-        }
-        close($src_fh);
-        close($tmp_fh);
-    }
+    my $tmp_dir = dirname($tmp_base);
+    my $tmp_file_path = "$tmp_dir/$submit_name";
+    
+    # Copy original file to temp location with proper name
+    copy($file, $tmp_file_path) or do {
+        logmsg("Cannot copy file $file to $tmp_file_path: $!");
+        return;
+    };
 
     # Use same format as cuckoomx.pl - HTTP::Request::Common will use filename from path
-    # Make sure $tmp_file is a string path, not a filehandle
-    my $tmp_file_path = "$tmp_file";
     my $req = POST "$url",
         Content_Type => 'form-data',
         Content => [
