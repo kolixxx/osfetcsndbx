@@ -123,6 +123,9 @@ nano /usr/local/etc/suricata2cuckoo/suricata2cuckoo.conf
 Настройте следующие параметры:
 
 - **`<path>`** — путь к filestore Suricata (по умолчанию `/var/log/suricata/filestore`)
+- **`<watch-method>`** — метод мониторинга:
+  - `polling` — опрос директорий (по умолчанию, работает всегда)
+  - `kqueue` — эффективный мониторинг через kqueue (требует установленный `IO::KQueue` через CPAN)
 - **`<api-url>`** — URL API Cuckoo (например `http://192.168.1.100:8090`)
 - **`<api-token>`** — токен из `conf/cuckoo.conf` Cuckoo (если включена аутентификация, иначе оставьте пустым)
 - **`<guest>`** — имя машины Cuckoo (например `Cuckoo1`)
@@ -130,12 +133,46 @@ nano /usr/local/etc/suricata2cuckoo/suricata2cuckoo.conf
 Пример конфигурации:
 
 ```xml
+<filestore>
+  <path>/var/log/suricata/filestore</path>
+  <watch-method>kqueue</watch-method>  <!-- или "polling" -->
+  <poll-interval>5</poll-interval>
+  <file-settle-time>2</file-settle-time>
+</filestore>
+
 <cuckoo>
   <api-url>http://192.168.1.100:8090</api-url>
   <api-token>your_token_here</api-token>
   <guest>Cuckoo1</guest>
 </cuckoo>
 ```
+
+**Если вы установили IO::KQueue через CPAN** и хотите использовать kqueue:
+
+1. Измените в конфиге:
+   ```xml
+   <watch-method>kqueue</watch-method>
+   ```
+
+2. Проверьте, что модуль доступен:
+   ```bash
+   perl -MIO::KQueue -e "print 'IO::KQueue доступен\n'"
+   ```
+
+3. Если модуль не найден, проверьте путь установки CPAN:
+   ```bash
+   perl -V | grep @INC
+   ```
+
+4. После изменения конфига перезапустите сервис:
+   ```bash
+   service suricata2cuckoo restart
+   ```
+
+5. Проверьте логи — должно быть сообщение "Watching X filestore dirs with kqueue":
+   ```bash
+   tail -20 /var/log/system.log | grep suricata2cuckoo
+   ```
 
 ### Шаг 6: Тестовый запуск
 
