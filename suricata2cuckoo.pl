@@ -156,11 +156,25 @@ sub submit_file {
 
     logmsg("Submitting $file as $submit_name (package=$package) to Cuckoo API");
 
+    # Read file content for upload
+    my $file_content;
+    {
+        local $/;
+        open my $fh, '<', $file or do {
+            logmsg("Cannot open file $file: $!");
+            return;
+        };
+        binmode($fh);
+        $file_content = <$fh>;
+        close($fh);
+    }
+
     # Send file with a proper filename (with extension) so Cuckoo/guest VM know how to run it
+    # Format: [ undef, filename, Content => file_content ]
     my $req = POST "$url",
         Content_Type => 'form-data',
         Content => [
-            file    => [ $file, $submit_name ],
+            file    => [ undef, $submit_name, Content => $file_content ],
             package => $package,
             machine => $CuckooVM,
         ];
