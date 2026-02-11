@@ -191,15 +191,34 @@ sub submit_file {
         return;
     }
     
+    # Debug: log what we're about to send
+    logmsg("DEBUG: tmp_file_path=$tmp_file_path, package=$package, machine=$CuckooVM");
+    logmsg("DEBUG: tmp_file_path type: " . ref($tmp_file_path) . ", package type: " . ref($package) . ", machine type: " . ref($CuckooVM));
+    
+    # Ensure all values are strings, not references
+    my $file_path_str = defined($tmp_file_path) ? "$tmp_file_path" : "";
+    my $package_str = defined($package) ? "$package" : "exe";
+    my $machine_str = defined($CuckooVM) ? "$CuckooVM" : "Cuckoo1";
+    
+    # Validate - all must be non-empty strings
+    unless ($file_path_str && $package_str && $machine_str) {
+        logmsg("ERROR: Invalid parameters - file_path=$file_path_str, package=$package_str, machine=$machine_str");
+        unlink($tmp_file_path) if -f $tmp_file_path;
+        return;
+    }
+    
     # Use EXACTLY the same format as cuckoomx.pl - HTTP::Request::Common will use filename from path
     # Format: file => [ $file_path_string ]
+    # Make sure we're passing a simple array reference with string values
+    my @content_array = (
+        'file'    => [ $file_path_str ],
+        'package' => $package_str,
+        'machine' => $machine_str,
+    );
+    
     my $req = POST $url,
         Content_Type => 'form-data',
-        Content => [
-            file    => [ $tmp_file_path ],
-            package => $package,
-            machine => $CuckooVM,
-        ];
+        Content => \@content_array;
     $req->header('Authorization' => "Bearer $CuckooApiToken") if $CuckooApiToken ne "";
 
     my $res = $ua->request($req);
