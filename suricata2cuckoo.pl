@@ -159,9 +159,10 @@ sub submit_file {
 
     # Create temporary file with proper extension for Cuckoo API
     # HTTP::Request::Common uses filename from path, so we need a temp file with correct extension
+    # Don't use UNLINK => 1, we'll delete it manually after the request
     my ($tmp_fh, $tmp_file) = tempfile(
         SUFFIX => '.' . ($submit_name =~ /\.([^.]+)$/ ? $1 : 'exe'),
-        UNLINK => 1
+        UNLINK => 0
     );
     
     # Copy original file to temp file
@@ -180,16 +181,21 @@ sub submit_file {
     }
 
     # Use same format as cuckoomx.pl - HTTP::Request::Common will use filename from path
+    # Make sure $tmp_file is a string path, not a filehandle
+    my $tmp_file_path = "$tmp_file";
     my $req = POST "$url",
         Content_Type => 'form-data',
         Content => [
-            file    => [ $tmp_file ],
+            file    => [ $tmp_file_path ],
             package => $package,
             machine => $CuckooVM,
         ];
     $req->header('Authorization' => "Bearer $CuckooApiToken") if $CuckooApiToken ne "";
 
     my $res = $ua->request($req);
+    
+    # Clean up temporary file
+    unlink($tmp_file_path) if -f $tmp_file_path;
 
     if (!$res->is_success) {
         my $err = $res->status_line;
