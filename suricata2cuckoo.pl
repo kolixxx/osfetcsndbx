@@ -177,13 +177,19 @@ sub submit_file {
         return;
     };
 
+    # Ensure all variables are strings (not references)
+    my $file_path_str = "$tmp_file_path";
+    my $package_str = "$package";
+    my $machine_str = "$CuckooVM";
+    
     # Use same format as cuckoomx.pl - HTTP::Request::Common will use filename from path
+    # Make sure we pass array reference with string, not filehandle or other reference
     my $req = POST "$url",
         Content_Type => 'form-data',
         Content => [
-            file    => [ $tmp_file_path ],
-            package => $package,
-            machine => $CuckooVM,
+            file    => [ $file_path_str ],
+            package => $package_str,
+            machine => $machine_str,
         ];
     $req->header('Authorization' => "Bearer $CuckooApiToken") if $CuckooApiToken ne "";
 
