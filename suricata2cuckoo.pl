@@ -177,14 +177,21 @@ sub submit_file {
         return;
     };
 
-    # Ensure all variables are strings (not references)
+    # Ensure file exists and is readable
+    unless (-f $tmp_file_path && -r $tmp_file_path) {
+        logmsg("Temporary file $tmp_file_path does not exist or is not readable");
+        unlink($tmp_file_path) if -f $tmp_file_path;
+        return;
+    }
+    
+    # Ensure all variables are strings (not references) - exactly as in cuckoomx.pl
     my $file_path_str = "$tmp_file_path";
     my $package_str = "$package";
     my $machine_str = "$CuckooVM";
     
-    # Use same format as cuckoomx.pl - HTTP::Request::Common will use filename from path
-    # Make sure we pass array reference with string, not filehandle or other reference
-    my $req = POST "$url",
+    # Use EXACTLY the same format as cuckoomx.pl - HTTP::Request::Common will use filename from path
+    # Format: file => [ $file_path_string ]
+    my $req = POST $url,
         Content_Type => 'form-data',
         Content => [
             file    => [ $file_path_str ],
