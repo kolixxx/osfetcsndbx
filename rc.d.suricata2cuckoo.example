@@ -14,7 +14,7 @@
 
 name="suricata2cuckoo"
 rcvar="${name}_enable"
-command="/usr/local/bin/suricata2cuckoo.pl"
+command="/usr/local/etc/suricata2cuckoo/suricata2cuckoo.pl"
 command_args="-c ${suricata2cuckoo_config:-/usr/local/etc/suricata2cuckoo.conf}"
 pidfile="/var/run/${name}.pid"
 start_cmd="${name}_start"

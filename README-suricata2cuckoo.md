@@ -185,11 +185,18 @@ nano /usr/local/etc/suricata2cuckoo/suricata2cuckoo.conf
   --no-fork
 ```
 
-Скрипт должен запуститься и начать мониторинг. Проверьте логи:
+Скрипт должен запуститься и начать мониторинг. Вы должны увидеть сообщение:
+```
+Starting suricata2cuckoo daemon (filestore=..., method=...)
+```
+
+Если есть ошибки — они будут видны сразу. Проверьте логи (на OPNsense могут быть в разных местах):
 
 ```bash
-# Просмотр логов syslog
+# Попробуйте все варианты (один из них должен работать):
 tail -f /var/log/system.log | grep suricata2cuckoo
+tail -f /var/log/messages | grep suricata2cuckoo
+tail -f /var/log/syslog | grep suricata2cuckoo
 ```
 
 Если всё работает корректно, остановите тестовый запуск (Ctrl+C) и переходите к следующему шагу.
@@ -248,9 +255,62 @@ tail -f /var/log/system.log | grep suricata2cuckoo
 # Проверка, что процесс запущен
 ps aux | grep suricata2cuckoo
 
-# Проверка логов на наличие ошибок
-grep suricata2cuckoo /var/log/system.log | tail -20
+# Проверка логов (на OPNsense логи могут быть в разных местах)
+# Попробуйте все варианты:
+grep suricata2cuckoo /var/log/system.log 2>/dev/null | tail -20
+grep suricata2cuckoo /var/log/messages 2>/dev/null | tail -20
+grep suricata2cuckoo /var/log/syslog 2>/dev/null | tail -20
+
+# Или через dmesg (если есть ошибки при запуске)
+dmesg | grep suricata2cuckoo
 ```
+
+**Если процесс не запущен или логи не видны:**
+
+1. **Проверьте, что rc.d скрипт существует и исполняемый:**
+   ```bash
+   ls -l /usr/local/etc/rc.d/suricata2cuckoo
+   # Должно быть: -rwxr-xr-x
+   ```
+
+2. **Проверьте, что путь к скрипту правильный в rc.d:**
+   ```bash
+   grep command= /usr/local/etc/rc.d/suricata2cuckoo
+   # Должно быть: command="/usr/local/etc/suricata2cuckoo/suricata2cuckoo.pl"
+   ```
+
+3. **Попробуйте запустить скрипт вручную для диагностики:**
+   ```bash
+   # Запуск в переднем плане (вы увидите все ошибки)
+   /usr/local/etc/suricata2cuckoo/suricata2cuckoo.pl \
+     -c /usr/local/etc/suricata2cuckoo/suricata2cuckoo.conf \
+     --no-fork
+   ```
+   
+   Если есть ошибки — они будут видны сразу. Типичные проблемы:
+   - Не найден конфиг → проверьте путь
+   - Не найден модуль Perl → установите зависимости
+   - Нет доступа к filestore → проверьте права
+
+4. **Проверьте, что сервис включен в rc.conf:**
+   ```bash
+   grep suricata2cuckoo /etc/rc.conf.local
+   # Должно быть:
+   # suricata2cuckoo_enable="YES"
+   # suricata2cuckoo_config="/usr/local/etc/suricata2cuckoo/suricata2cuckoo.conf"
+   ```
+
+5. **Попробуйте запустить сервис вручную через rc.d:**
+   ```bash
+   /usr/local/etc/rc.d/suricata2cuckoo start
+   # Проверьте вывод на ошибки
+   ```
+
+6. **Проверьте, что daemon может создать pidfile:**
+   ```bash
+   ls -ld /var/run
+   # Если нет прав, может быть проблема с pidfile
+   ```
 
 ## Управление сервисом
 
@@ -281,16 +341,22 @@ service suricata2cuckoo status
 - Программа: `suricata2cuckoo`
 - Facility: из конфига (по умолчанию `daemon`)
 
-Просмотр логов:
+Просмотр логов (на OPNsense логи могут быть в разных местах):
 
 ```bash
-# Все логи скрипта
-grep suricata2cuckoo /var/log/system.log
+# Попробуйте все варианты (один из них должен работать):
+# Вариант 1: system.log
+grep suricata2cuckoo /var/log/system.log | tail -20
 
-# Последние 50 строк
-tail -50 /var/log/system.log | grep suricata2cuckoo
+# Вариант 2: messages (часто используется на FreeBSD/OPNsense)
+grep suricata2cuckoo /var/log/messages | tail -20
 
-# Мониторинг в реальном времени
+# Вариант 3: syslog
+grep suricata2cuckoo /var/log/syslog | tail -20
+
+# Мониторинг в реальном времени (попробуйте все варианты):
+tail -f /var/log/messages | grep suricata2cuckoo
+# или
 tail -f /var/log/system.log | grep suricata2cuckoo
 ```
 
@@ -325,8 +391,9 @@ tail -f /var/log/system.log | grep suricata2cuckoo
 
 2. Проверьте токен аутентификации в конфиге
 
-3. Проверьте логи на наличие ошибок API:
+3. Проверьте логи на наличие ошибок API (попробуйте все варианты):
    ```bash
+   grep "Cuckoo API" /var/log/messages | tail -20
    grep "Cuckoo API" /var/log/system.log | tail -20
    ```
 
